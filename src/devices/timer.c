@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
@@ -24,11 +25,79 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+/* Threads that are suspended and
+   waiting to be woken up. */
+static struct list sleeping_list;
+
+/* Lock to handle the sleeping list. */
+static struct lock sleeping_lock;
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
+
+static void add_to_sleeping_list(struct thread * t, int64_t ticks);
+static void remove_from_sleeping_list(void);
+
+struct thread_with_sleep_info
+{
+  struct list_elem elem;
+  struct thread * t;
+  int64_t wakeup_ticks;
+};
+
+bool
+elem_comparison_function(const struct list_elem *a,
+			 const struct list_elem *b,
+			 void *aux)
+{
+  struct thread_with_sleep_info *info_a = list_entry(a,
+						     struct thread_with_sleep_info,
+						     elem);
+  struct thread_with_sleep_info *info_b = list_entry(b,
+						     struct thread_with_sleep_info,
+						     elem);
+  return info_a->wakeup_ticks < info_b->wakeup_ticks;
+}
+
+void
+add_to_sleeping_list(struct thread * t, int64_t ticks)
+{
+  int64_t start = timer_ticks ();
+  struct thread_with_sleep_info *sleep_info = (struct thread_with_sleep_info *)malloc(sizeof(struct thread_with_sleep_info));
+  sleep_info->t = t;
+  sleep_info->wakeup_ticks = start + ticks;
+  lock_acquire(&sleeping_lock);
+  list_insert_ordered(&sleeping_list, &(sleep_info->elem), elem_comparison_function, NULL);
+  lock_release(&sleeping_lock);
+  enum intr_level old_level = intr_disable ();
+  thread_block();
+  intr_set_level (old_level);
+}
+
+void
+remove_from_sleeping_list(void)
+{
+  if (!lock_try_acquire(&sleeping_lock))
+  {
+    printf("Failed to acquire lock.\n");
+    return;
+  }
+  if ( !list_empty(&sleeping_list))
+  {
+    struct thread_with_sleep_info * head = list_entry(list_front(&sleeping_list),
+						      struct thread_with_sleep_info,
+						      elem);
+    if( head->wakeup_ticks <= timer_ticks() )
+    {
+      thread_unblock(head->t);
+      list_pop_front(&sleeping_list);
+    }
+  }
+  lock_release(&sleeping_lock);
+}
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -37,6 +106,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  lock_init(&sleeping_lock);
+  list_init(&sleeping_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -63,7 +134,7 @@ timer_calibrate (void)
     if (!too_many_loops (high_bit | test_bit))
       loops_per_tick |= test_bit;
 
-  printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
+  printf ("%'"PRId64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
 /* Returns the number of timer ticks since the OS booted. */
@@ -89,11 +160,11 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  /*  while (timer_elapsed (start) < ticks) 
+      thread_yield ();*/
+  //printf("Requesting thread %s to sleep for %"PRId64" ticks\n", thread_current()->name, ticks);
+  add_to_sleeping_list(thread_current(), ticks);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +243,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  remove_from_sleeping_list();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
