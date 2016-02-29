@@ -85,7 +85,7 @@ remove_from_sleeping_list(void)
     printf("Failed to acquire lock.\n");
     return;
   }
-  if ( !list_empty(&sleeping_list))
+  while ( !list_empty(&sleeping_list))
   {
     struct thread_with_sleep_info * head = list_entry(list_front(&sleeping_list),
 						      struct thread_with_sleep_info,
@@ -94,6 +94,10 @@ remove_from_sleeping_list(void)
     {
       thread_unblock(head->t);
       list_pop_front(&sleeping_list);
+    }
+    else
+    {
+      break;
     }
   }
   lock_release(&sleeping_lock);
