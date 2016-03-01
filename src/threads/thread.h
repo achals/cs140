@@ -93,6 +93,11 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* List element for sleeping list. */
+    struct list_elem sleep_elem;
+    /* When the thread should wake up if asleep.  */
+    int64_t wakeup_ticks;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -125,6 +130,9 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+
+void add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks);
+void remove_from_sleeping_list(int64_t current_ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

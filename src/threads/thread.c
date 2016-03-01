@@ -28,6 +28,13 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* Threads that are suspended and
+   waiting to be woken up. */
+static struct list sleeping_list;
+
+/* Lock to handle the sleeping list. */
+static struct lock sleeping_lock;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -71,6 +78,65 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
+bool
+elem_comparison_function(const struct list_elem *a,
+			 const struct list_elem *b,
+			 void *aux);
+
+bool
+elem_comparison_function(const struct list_elem *a,
+			 const struct list_elem *b,
+			 void *aux)
+{
+  struct thread *thread_a = list_entry(a,
+				       struct thread,
+				       sleep_elem);
+  struct thread *thread_b = list_entry(b,
+				       struct thread,
+				       sleep_elem);
+  return thread_a->wakeup_ticks < thread_b->wakeup_ticks;
+}
+
+void
+add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
+{
+  t->wakeup_ticks = wakeup_ticks;
+  lock_acquire(&sleeping_lock);
+  list_insert_ordered(&sleeping_list, &(t->sleep_elem), elem_comparison_function, NULL);
+  lock_release(&sleeping_lock);
+  enum intr_level old_level = intr_disable ();
+  thread_block();
+  intr_set_level (old_level);
+}
+
+void
+remove_from_sleeping_list(int64_t current_ticks)
+{
+  if (!lock_try_acquire(&sleeping_lock))
+  {
+    printf("Failed to acquire lock.\n");
+    return;
+  }
+  while ( !list_empty(&sleeping_list))
+  {
+    struct thread * head = list_entry(list_front(&sleeping_list),
+				      struct thread,
+				      sleep_elem);
+    if( head->wakeup_ticks <= current_ticks )
+    {
+      thread_unblock(head);
+      list_pop_front(&sleeping_list);
+    }
+    else
+    {
+      break;
+    }
+  }
+  lock_release(&sleeping_lock);
+}
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -93,6 +159,9 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  lock_init(&sleeping_lock);
+  list_init(&sleeping_list);
+  
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
