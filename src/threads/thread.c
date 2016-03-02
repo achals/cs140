@@ -287,8 +287,11 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* Add to run queue. */
-  thread_unblock (t);
-
+  thread_unblock(t);
+  if(thread_current()->priority < priority)
+  {
+    add_to_sleeping_list(thread_current(), 0);
+  }
   return tid;
 }
 
@@ -423,7 +426,17 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *t = thread_current();
+  int old_priority = t->priority;
+  struct list_elem elem = t->priority_sleep_elem;
+  t->priority = new_priority;
+  if(t->status == THREAD_BLOCKED)
+  {
+    lock_acquire(&priority_sleeping_locks[old_priority]);
+    list_remove(&elem);
+    lock_release(&priority_sleeping_locks[old_priority]);
+  }
+  add_to_sleeping_list(t, t->wakeup_ticks);
 }
 
 /* Returns the current thread's priority. */
@@ -551,6 +564,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->wakeup_ticks = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
