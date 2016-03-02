@@ -96,8 +96,6 @@ struct thread
     /* List element for priority sleeping list. */
     struct list_elem priority_sleep_elem;
 
-    /* List element for sleeping list. */
-    struct list_elem sleep_elem;
     /* When the thread should wake up if asleep.  */
     int64_t wakeup_ticks;
 
