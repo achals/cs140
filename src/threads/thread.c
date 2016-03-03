@@ -430,6 +430,7 @@ thread_set_priority (int new_priority)
   int old_priority = t->priority;
   struct list_elem elem = t->priority_sleep_elem;
   t->priority = new_priority;
+  t->original_priority = new_priority;
   if(t->status == THREAD_BLOCKED)
   {
     lock_acquire(&priority_sleeping_locks[old_priority]);
@@ -563,6 +564,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
   t->magic = THREAD_MAGIC;
   t->wakeup_ticks = 0;
 
