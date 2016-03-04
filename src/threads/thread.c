@@ -290,7 +290,7 @@ thread_create (const char *name, int priority,
   thread_unblock(t);
   if(thread_current()->priority < priority)
   {
-    add_to_sleeping_list(thread_current(), 0);
+    thread_yield();
   }
   return tid;
 }
