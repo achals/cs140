@@ -290,7 +290,10 @@ thread_create (const char *name, int priority,
   thread_unblock(t);
   if(thread_current()->priority < priority)
   {
-    thread_block();
+    enum intr_level old_level;
+    old_level = intr_disable ();
+    thread_yield();
+    intr_set_level (old_level);
   }
   return tid;
 }
