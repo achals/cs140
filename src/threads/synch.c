@@ -49,10 +49,10 @@ priority_comparison(const struct list_elem *a,
 {
   struct thread *thread_a = list_entry(a,
 				       struct thread,
-				       elem);
+				       lock_elem);
   struct thread *thread_b = list_entry(b,
 				       struct thread,
-				       elem);
+				       lock_elem);
   return thread_a->priority > thread_b->priority;
 }
 
@@ -85,7 +85,7 @@ sema_down (struct semaphore *sema)
   while (sema->value == 0) 
     {
       list_insert_ordered (&sema->waiters,
-			   &thread_current ()->elem,
+			   &thread_current ()->lock_elem,
 			   priority_comparison,
 			   NULL);
       thread_block ();
@@ -132,10 +132,17 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
   sema->value++;
+  if (!list_empty (&sema->waiters)) 
+    {
+      struct thread * thread_to_run = list_entry(list_pop_front (&sema->waiters),
+						 struct thread, lock_elem);
+      thread_unblock(thread_to_run);
+      if (thread_to_run->priority > thread_current()->priority)
+      {
+	  thread_yield();
+      }
+    }
   intr_set_level (old_level);
 }
 

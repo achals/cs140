@@ -94,6 +94,8 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    struct list_elem lock_elem;
+
     /* List element for priority sleeping list. */
     struct list_elem priority_sleep_elem;
 
