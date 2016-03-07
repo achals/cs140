@@ -120,7 +120,6 @@ add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 void
 remove_from_sleeping_list(int64_t current_ticks)
 {
-  bool unblocked_any = false;
   int i;
   for(i = PRI_MAX; i >= PRI_MIN; i--)
   {
@@ -134,7 +133,6 @@ remove_from_sleeping_list(int64_t current_ticks)
 	if( head->wakeup_ticks <= current_ticks )
 	{
 	  thread_unblock(head);
-	  unblocked_any = true;
 	  list_pop_front(&priority_sleeping_lists[i]);
 	}
 	else
