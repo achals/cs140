@@ -135,7 +135,8 @@ sema_up (struct semaphore *sema)
   sema->value++;
   if (!list_empty (&sema->waiters)) 
     {
-      struct thread * thread_to_run = list_entry(list_pop_front (&sema->waiters),
+      struct thread *
+	thread_to_run = list_entry(list_pop_front (&sema->waiters),
 						 struct thread, lock_elem);
       thread_unblock(thread_to_run);
       thread_yield();
@@ -230,7 +231,6 @@ lock_acquire (struct lock *lock)
   }
   sema_down (&lock->semaphore);
   lock->holder = t;
-
   intr_set_level(old_level);
 }
 
