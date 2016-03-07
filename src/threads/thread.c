@@ -28,11 +28,12 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* Sleeping list. */
-static struct list sleeping_list;
+/* Sleeping lists per priority. This can be a sorted list as well,
+   but since there are so fre priorities an array should be just as good. */
+static struct list priority_sleeping_lists[PRI_MAX + 1];
 
 /* Lock to handle the sleeping list. */
-static struct lock sleeping_lock;
+static struct lock priority_sleeping_locks[PRI_MAX + 1];
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -90,53 +91,63 @@ elem_comparison_function(const struct list_elem *a,
 {
   struct thread *thread_a = list_entry(a,
 				       struct thread,
-				       sleep_elem);
+				       priority_sleep_elem);
   struct thread *thread_b = list_entry(b,
 				       struct thread,
-				       sleep_elem);
+				       priority_sleep_elem);
   return thread_a->wakeup_ticks < thread_b->wakeup_ticks;
 }
 
 void
 add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 {
-  enum intr_level old_level = intr_disable ();
   t->wakeup_ticks = wakeup_ticks;
 
-  lock_acquire(&sleeping_lock);
-  list_insert_ordered(&sleeping_list,
-		      &(t->sleep_elem),
+  int thread_priority = t->priority;
+  lock_acquire(&priority_sleeping_locks[thread_priority]);
+  list_insert_ordered(&priority_sleeping_lists[thread_priority],
+		      &(t->priority_sleep_elem),
 		      elem_comparison_function,
 		      NULL);
-  lock_release(&sleeping_lock);
+  lock_release(&priority_sleeping_locks[thread_priority]);
 
+  enum intr_level old_level = intr_disable ();
   thread_block();
-
   intr_set_level (old_level);
 }
 
 void
 remove_from_sleeping_list(int64_t current_ticks)
 {
-    if(lock_try_acquire(&sleeping_lock))
+  bool unblocked_any = false;
+  int i;
+  for(i = PRI_MAX; i >= PRI_MIN; i--)
+  {
+    if(lock_try_acquire(&priority_sleeping_locks[i]))
     {
-      while(!list_empty(&sleeping_list))
+      while(!list_empty(&priority_sleeping_lists[i]))
       {
-	struct thread * head = list_entry(list_front(&sleeping_list),
+	struct thread * head = list_entry(list_front(&priority_sleeping_lists[i]),
 					  struct thread,
-					  sleep_elem);
+					  priority_sleep_elem);
 	if( head->wakeup_ticks <= current_ticks )
 	{
 	  thread_unblock(head);
-	  list_pop_front(&sleeping_list);
+	  unblocked_any = true;
+	  list_pop_front(&priority_sleeping_lists[i]);
 	}
 	else
 	{
 	  break;
 	}
       }
-      lock_release(&sleeping_lock);
+      lock_release(&priority_sleeping_locks[i]);
     }
+    if(unblocked_any)
+    {
+      break;
+    }
+  }
 }
 
 
@@ -163,8 +174,12 @@ thread_init (void)
   list_init (&all_list);
 
   /* Set up sleeping lists. */
-  list_init(&sleeping_list);
-  lock_init(&sleeping_lock);
+  int i;
+  for(i = PRI_MIN; i < PRI_MAX; i++)
+  {
+    list_init(&priority_sleeping_lists[i]);
+    lock_init(&priority_sleeping_locks[i]);
+  }    
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -415,9 +430,17 @@ void
 thread_set_priority (int new_priority) 
 {
   struct thread *t = thread_current();
+  int old_priority = t->priority;
+  struct list_elem elem = t->priority_sleep_elem;
   t->priority = new_priority;
   t->original_priority = new_priority;
-  thread_yield();
+  if(t->status == THREAD_BLOCKED)
+  {
+    lock_acquire(&priority_sleeping_locks[old_priority]);
+    list_remove(&elem);
+    lock_release(&priority_sleeping_locks[old_priority]);
+  }
+  add_to_sleeping_list(t, t->wakeup_ticks);
 }
 
 /* Returns the current thread's priority. */
