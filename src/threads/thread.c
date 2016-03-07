@@ -101,6 +101,8 @@ elem_comparison_function(const struct list_elem *a,
 void
 add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 {
+  enum intr_level old_level = intr_disable ();
+
   t->wakeup_ticks = wakeup_ticks;
 
   int thread_priority = t->priority;
@@ -111,7 +113,6 @@ add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 		      NULL);
   lock_release(&priority_sleeping_locks[thread_priority]);
 
-  enum intr_level old_level = intr_disable ();
   thread_block();
   intr_set_level (old_level);
 }
@@ -142,10 +143,6 @@ remove_from_sleeping_list(int64_t current_ticks)
 	}
       }
       lock_release(&priority_sleeping_locks[i]);
-    }
-    if(unblocked_any)
-    {
-      break;
     }
   }
 }
