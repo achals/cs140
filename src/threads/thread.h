@@ -94,10 +94,17 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Lock element stored in the lock semaphore. */
     struct list_elem lock_elem;
 
     /* List element for priority sleeping list. */
     struct list_elem priority_sleep_elem;
+
+    /* Element stored in the threads wait list. */
+    struct list_elem thread_waiting_elem;
+
+    /* List of threads waiting on this thread for a lock. */
+    struct list waiting_threads;
 
     /* When the thread should wake up if asleep.  */
     int64_t wakeup_ticks;
