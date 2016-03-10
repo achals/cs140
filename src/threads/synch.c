@@ -256,9 +256,9 @@ lock_acquire (struct lock *lock)
       max_pri_thread = list_entry(list_front(&(lock->holder->waiting_threads)),
 				  struct thread, thread_waiting_elem);
 
-    if (lock->holder->priority > t->priority)
+    if (lock->holder->priority < max_pri_thread->priority)
       {
-	lock->holder->priority = t->priority;
+	lock->holder->priority = max_pri_thread->priority;
       }
   }
   sema_down (&lock->semaphore);
@@ -319,8 +319,17 @@ lock_release (struct lock *lock)
     {  struct thread *
 	max_pri_thread = list_entry(list_front(&old_holder->waiting_threads),
 				    struct thread, thread_waiting_elem);
+    
+      if (old_holder->priority < max_pri_thread->priority)
+	{
+	  old_holder->priority = max_pri_thread->priority;
+	}
+      else
+	{
+	  old_holder->priority = old_holder->original_priority;
+	}
     }
-  if (old_holder->priority != old_holder->original_priority)
+  else
     {
       old_holder->priority = old_holder->original_priority;
     }
