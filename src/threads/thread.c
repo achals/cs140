@@ -193,6 +193,7 @@ thread_init (void)
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
+
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
@@ -295,8 +296,6 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
-  list_init(&t->waiting_threads);
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -591,6 +590,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->original_priority = priority;
   t->magic = THREAD_MAGIC;
   t->wakeup_ticks = 0;
+
+  list_init(&t->waiting_threads);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

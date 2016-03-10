@@ -246,14 +246,14 @@ lock_acquire (struct lock *lock)
       }
     else
       {
-	list_insert_ordered (&lock->holder->waiting_threads,
+	list_insert_ordered (&(lock->holder->waiting_threads),
 			     &t->thread_waiting_elem,
 			     priority_waiting_comparison,
 			     NULL);
       }
 
     struct thread *
-      max_pri_thread = list_entry(list_front(&lock->holder->waiting_threads),
+      max_pri_thread = list_entry(list_front(&(lock->holder->waiting_threads)),
 				  struct thread, thread_waiting_elem);
 
     if (lock->holder->priority > t->priority)
