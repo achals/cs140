@@ -109,7 +109,7 @@ priority_comparison_function(const struct list_elem *a,
   struct thread *thread_b = list_entry(b,
 				       struct thread,
 				       elem);
-  return thread_a->priority > thread_b->priority;
+  return thread_a->priority >= thread_b->priority;
 }
 
 

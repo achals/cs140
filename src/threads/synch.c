@@ -151,7 +151,13 @@ sema_up (struct semaphore *sema)
 	thread_to_run = list_entry(list_pop_front (&sema->waiters),
 						 struct thread, lock_elem);
       thread_unblock(thread_to_run);
-      thread_yield();
+
+      struct thread *
+	current = thread_current();
+      if(thread_to_run->priority > current->priority)
+	{
+	  thread_yield();
+	}
     }
   intr_set_level (old_level);
 }
@@ -238,7 +244,6 @@ lock_acquire (struct lock *lock)
   struct thread *t = thread_current();
   if(lock->holder != NULL)
   {
-    // THIS IS BROKEN BUT I DON'T KNOW WHY
     if(list_empty(&lock->holder->waiting_threads))
       {
 	list_push_back(&lock->holder->waiting_threads,
@@ -313,14 +318,13 @@ lock_release (struct lock *lock)
 
       list_remove(&thread_to_unblock->thread_waiting_elem);
     }
-  sema_up (&lock->semaphore);
 
   if (!list_empty(&old_holder->waiting_threads))
     {  struct thread *
 	max_pri_thread = list_entry(list_front(&old_holder->waiting_threads),
 				    struct thread, thread_waiting_elem);
     
-      if (old_holder->priority < max_pri_thread->priority)
+      if (old_holder->original_priority < max_pri_thread->priority)
 	{
 	  old_holder->priority = max_pri_thread->priority;
 	}
@@ -333,7 +337,7 @@ lock_release (struct lock *lock)
     {
       old_holder->priority = old_holder->original_priority;
     }
-
+  sema_up (&lock->semaphore);
   intr_set_level(old_level);
 }
 
