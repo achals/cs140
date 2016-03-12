@@ -114,6 +114,28 @@ priority_comparison_function(const struct list_elem *a,
 
 
 void
+propogate_priority_change(struct thread * t,
+			  enum intr_level new_pri,
+			  int remaining_hops)
+{
+  if (t == NULL)
+    {
+      return;
+    }
+
+  if (t->priority < new_pri)
+    {
+      t->priority = new_pri;
+      if (remaining_hops > 0)
+	{
+	  propogate_priority_change(t->thread_with_lock,
+				   new_pri,
+				   remaining_hops - 1);
+	}
+    }
+}
+
+void
 add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 {
   enum intr_level old_level = intr_disable ();
