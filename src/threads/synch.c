@@ -263,7 +263,9 @@ lock_acquire (struct lock *lock)
 
     if (lock->holder->priority < max_pri_thread->priority)
       {
-	lock->holder->priority = max_pri_thread->priority;
+	propogate_priority_change(lock->holder,
+				  max_pri_thread->priority,
+				  3);
       }
   }
   sema_down (&lock->semaphore);
