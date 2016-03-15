@@ -260,7 +260,7 @@ lock_acquire (struct lock *lock)
 	  {
 	    propogate_priority_change(lock->holder,
 				      max_pri_thread->priority,
-				      3);
+				      8);
 	  }
       }
   }
@@ -325,16 +325,22 @@ lock_release (struct lock *lock)
     
       if (old_holder->original_priority < max_pri_thread->priority)
 	{
-	  old_holder->priority = max_pri_thread->priority;
+	  propogate_priority_change(old_holder,
+				    max_pri_thread->priority,
+				    8);
 	}
       else
 	{
-	  old_holder->priority = old_holder->original_priority;
+	  propogate_priority_change(old_holder,
+				    old_holder->original_priority,
+				    8);
 	}
     }
   else
     {
-      old_holder->priority = old_holder->original_priority;
+      propogate_priority_change(old_holder,
+				old_holder->original_priority,
+				8);
     }
   sema_up (&lock->semaphore);
   intr_set_level(old_level);
