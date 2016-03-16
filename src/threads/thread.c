@@ -109,7 +109,7 @@ priority_comparison_function(const struct list_elem *a,
   struct thread *thread_b = list_entry(b,
 				       struct thread,
 				       elem);
-  return thread_a->priority >= thread_b->priority;
+  return thread_a->priority < thread_b->priority;
 }
 
 
@@ -364,10 +364,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list,
-		      &(t->elem),
-		      priority_comparison_function,
-		      NULL);
+  list_push_back(&ready_list, &(t->elem));
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -440,10 +437,7 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
     {
-        list_insert_ordered(&ready_list,
-			    &(cur->elem),
-			    priority_comparison_function,
-			    NULL);
+        list_push_back(&ready_list, &(cur->elem));
     }
   cur->status = THREAD_READY;
   schedule ();
@@ -644,7 +638,15 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    {
+      struct list_elem * max_elem = list_max(&ready_list,
+					     priority_comparison_function,
+					     NULL);
+      list_remove(max_elem);
+      struct thread *
+	thread_to_run = list_entry(max_elem, struct thread, elem);
+      return thread_to_run;
+    }
 }
 
 /* Completes a thread switch by activating the new thread's page

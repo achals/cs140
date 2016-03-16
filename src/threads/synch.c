@@ -43,7 +43,7 @@ priority_comparison(const struct list_elem *a,
   struct thread *thread_b = list_entry(b,
 				       struct thread,
 				       lock_elem);
-  return thread_a->priority > thread_b->priority;
+  return thread_a->priority < thread_b->priority;
 }
 
 bool
@@ -66,7 +66,7 @@ priority_waiting_comparison(const struct list_elem *a,
 
    - down or "P": wait for the value to become positive, then
      decrement it.
-
+vv
    - up or "V": increment the value (and wake up one waiting
      thread, if any). */
 void
@@ -96,13 +96,11 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered (&sema->waiters,
-			   &thread_current ()->lock_elem,
-			   priority_comparison,
-			   NULL);
+      list_push_back (&sema->waiters,
+		      &thread_current()->lock_elem);
       thread_block ();
     }
-  sema->value--;
+  sema->value--;  
   intr_set_level (old_level);
 }
 
@@ -147,9 +145,15 @@ sema_up (struct semaphore *sema)
   sema->value++;
   if (!list_empty (&sema->waiters)) 
     {
+      struct list_elem * max_elem;
+      max_elem = list_max (&sema->waiters,
+			   priority_comparison,
+			   NULL);
+      list_remove(max_elem);
+      
       struct thread *
-	thread_to_run = list_entry(list_pop_front (&sema->waiters),
-						 struct thread, lock_elem);
+	thread_to_run = list_entry(max_elem,
+				   struct thread, lock_elem);
       thread_unblock(thread_to_run);
 
       struct thread *
@@ -311,16 +315,23 @@ lock_release (struct lock *lock)
   if (!list_empty(&lock->semaphore.waiters))
     {
       struct thread *
-	thread_to_unblock = list_entry(list_front(&lock->semaphore.waiters),
-				    struct thread, lock_elem);
+	thread_to_unblock = list_entry(list_max(&lock->semaphore.waiters,
+						priority_comparison,
+						NULL),
+				       struct thread, lock_elem);
 
       list_remove(&thread_to_unblock->thread_waiting_elem);
       thread_to_unblock->thread_with_lock = NULL;
     }
 
   if (!list_empty(&old_holder->waiting_threads))
-    {  struct thread *
-	max_pri_thread = list_entry(list_front(&old_holder->waiting_threads),
+    {
+      struct list_elem *
+	max_waiting_thread_elem = list_max(&old_holder->waiting_threads,
+					   priority_waiting_comparison,
+					   NULL);
+      struct thread *
+	max_pri_thread = list_entry(max_waiting_thread_elem,
 				    struct thread, thread_waiting_elem);
     
       if (old_holder->original_priority < max_pri_thread->priority)
