@@ -608,6 +608,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->wakeup_ticks = 0;
 
   list_init(&t->waiting_threads);
+  list_init(&t->locks_held);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

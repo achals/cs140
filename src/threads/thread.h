@@ -108,6 +108,9 @@ struct thread
     /* List of threads waiting on this thread for a lock. */
     struct list waiting_threads;
 
+    /* List of locks that are held by this thread. */
+    struct list locks_held;
+
     /* When the thread should wake up if asleep.  */
     int64_t wakeup_ticks;
 
