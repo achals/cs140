@@ -334,9 +334,7 @@ lock_release (struct lock *lock)
 	}
     }
 
-  propogate_priority_change(old_holder,
-			    new_priority,
-			    8);
+  old_holder->priority = new_priority;
   sema_up (&lock->semaphore);
   intr_set_level(old_level);
 }
