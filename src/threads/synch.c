@@ -32,6 +32,13 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* One semaphore in a list. */
+struct semaphore_elem 
+  {
+    struct list_elem elem;              /* List element. */
+    struct semaphore semaphore;         /* This semaphore. */
+  };
+
 bool
 priority_comparison(const struct list_elem *a,
                     const struct list_elem *b,
@@ -65,17 +72,17 @@ cond_waiters_comparison(const struct list_elem *a,
                         const struct list_elem *b,
                         void * aux)
 {
-  struct semaphore *
+  struct semaphore_elem *
     sema_a = list_entry(a,
                         struct semaphore_elem,
                         elem);
 
-  struct semaphore *
+  struct semaphore_elem *
     sema_b = list_entry(b,
                         struct semaphore_elem,
                         elem);
-  int max_pri_a = max_pri_from_semaphore_waiters(sema_a);
-  int max_pri_b = max_pri_from_semaphore_waiters(sema_b);)
+  int max_pri_a = max_pri_from_semaphore_waiters(&sema_a->semaphore);
+  int max_pri_b = max_pri_from_semaphore_waiters(&sema_b->semaphore);
   return max_pri_a < max_pri_b;
 }
 
@@ -84,20 +91,20 @@ int max_pri_from_semaphore_waiters(struct semaphore * sema)
 {
 
   int max_pri = PRI_MIN;
-  struct thread * t;
+  struct list_elem * t;
   for (t = list_begin(&sema->waiters);
-	   t != list_end (&sema->waiters);
-	   t = list_next (t))
-	{
-	  struct thread *
-	    temp_thread = list_entry(t,
+       t != list_end (&sema->waiters);
+       t = list_next (t))
+    {
+      struct thread *
+	temp_thread = list_entry(t,
                                  struct thread,
                                  lock_elem);
 	  if(temp_thread->priority > max_pri)
 	    {
 	      max_pri = temp_thread->priority;
 	    }
-	}
+    }
   return max_pri;
 }
 
@@ -384,13 +391,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
-/* One semaphore in a list. */
-struct semaphore_elem 
-  {
-    struct list_elem elem;              /* List element. */
-    struct semaphore semaphore;         /* This semaphore. */
-  };
+
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -457,7 +458,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
 
   if (!list_empty (&cond->waiters)) 
     {
-      struct * list_elem max_pri_elem = list_max(&cond->waiters,
+      struct list_elem * max_pri_elem = list_max(&cond->waiters,
                                                  cond_waiters_comparison,
                                                  NULL);
       list_remove(max_pri_elem);
