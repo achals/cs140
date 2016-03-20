@@ -102,11 +102,6 @@ struct thread
     struct list_elem priority_sleep_elem;
 
     struct thread * thread_with_lock;
-    /* Element stored in the threads wait list. */
-    struct list_elem thread_waiting_elem;
-
-    /* List of threads waiting on this thread for a lock. */
-    struct list waiting_threads;
 
     /* List of locks that are held by this thread. */
     struct list locks_held;

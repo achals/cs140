@@ -54,20 +54,6 @@ priority_comparison(const struct list_elem *a,
 }
 
 bool
-priority_waiting_comparison(const struct list_elem *a,
-                            const struct list_elem *b,
-                            void * aux)
-{
-  struct thread *thread_a = list_entry(a,
-                                       struct thread,
-                                       thread_waiting_elem);
-  struct thread *thread_b = list_entry(b,
-                                       struct thread,
-                                       thread_waiting_elem);
-  return thread_a->priority < thread_b->priority;
-}
-
-bool
 cond_waiters_comparison(const struct list_elem *a,
                         const struct list_elem *b,
                         void * aux)
