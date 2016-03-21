@@ -78,16 +78,20 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+bool
+elem_comparison_function(const struct list_elem *a,
+			 const struct list_elem *b,
+			 void * aux UNUSED);
+bool
+priority_comparison_function(const struct list_elem *a,
+			     const struct list_elem *b,
+			     void * aux UNUSED);
+
 
 bool
 elem_comparison_function(const struct list_elem *a,
 			 const struct list_elem *b,
-			 void *);
-
-bool
-elem_comparison_function(const struct list_elem *a,
-			 const struct list_elem *b,
-			 void * aux)
+			 void * aux UNUSED)
 {
   struct thread *thread_a = list_entry(a,
 				       struct thread,
@@ -101,7 +105,7 @@ elem_comparison_function(const struct list_elem *a,
 bool
 priority_comparison_function(const struct list_elem *a,
 			     const struct list_elem *b,
-			     void * aux)
+			     void * aux UNUSED)
 {
   struct thread *thread_a = list_entry(a,
 				       struct thread,
@@ -491,7 +495,13 @@ void
 thread_set_nice (int nice) 
 {
   thread_current()->niceness = nice;
-  // TODO: Update thread priority.
+  // Update thread priority.
+  if(thread_mlfqs)
+    {
+      int recent_cpu = thread_get_recent_cpu();
+      int new_priority = PRI_MAX - (recent_cpu / 4) - (nice * 2);
+      thread_set_priority(new_priority);
+    }
 }
 
 /* Returns the current thread's nice value. */

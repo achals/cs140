@@ -33,16 +33,26 @@
 #include "threads/thread.h"
 
 /* One semaphore in a list. */
-struct semaphore_elem 
+struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
   };
 
+int max_pri_from_semaphore_waiters(struct semaphore * sema);
 bool
 priority_comparison(const struct list_elem *a,
                     const struct list_elem *b,
-                    void * aux)
+                    void * aux UNUSED);
+bool
+cond_waiters_comparison(const struct list_elem *a,
+                        const struct list_elem *b,
+                        void * aux UNUSED);
+
+bool
+priority_comparison(const struct list_elem *a,
+                    const struct list_elem *b,
+                    void * aux UNUSED)
 {
   struct thread *thread_a = list_entry(a,
                                        struct thread,
@@ -56,7 +66,7 @@ priority_comparison(const struct list_elem *a,
 bool
 cond_waiters_comparison(const struct list_elem *a,
                         const struct list_elem *b,
-                        void * aux)
+                        void * aux UNUSED)
 {
   struct semaphore_elem *
     sema_a = list_entry(a,
@@ -345,7 +355,6 @@ lock_release (struct lock *lock)
 
   int new_priority = old_holder->original_priority;
   struct list_elem * l;
-  struct list_elem * t;  
   for (l = list_begin(&old_holder->locks_held);
        l != list_end (&old_holder->locks_held);
        l = list_next (l))
