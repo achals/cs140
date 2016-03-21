@@ -151,7 +151,7 @@ void thread_yield (void);
 void add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks);
 void remove_from_sleeping_list(int64_t current_ticks);
 
-void propogate_priority_change(struct thread * t, enum intr_level new_pri, int remaining_hops);
+void propogate_priority_change(struct thread * t, int new_pri, int remaining_hops);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

@@ -119,7 +119,7 @@ priority_comparison_function(const struct list_elem *a,
 
 void
 propogate_priority_change(struct thread * t,
-			  enum intr_level new_pri,
+			  int new_pri,
 			  int remaining_hops)
 {
   if (t == NULL)
