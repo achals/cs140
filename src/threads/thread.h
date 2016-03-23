@@ -34,7 +34,7 @@ typedef int tid_t;
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
-   thread structure itself sits at the very bottom of the page
+v   thread structure itself sits at the very bottom of the page
    (at offset 0).  The rest of the page is reserved for the
    thread's kernel stack, which grows downward from the top of
    the page (at offset 4 kB).  Here's an illustration:
@@ -167,5 +167,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void update_load_avg(void);
 
 #endif /* threads/thread.h */

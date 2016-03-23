@@ -1,4 +1,3 @@
-#include "threads/fixed-point.h"
 #include "threads/thread.h"
 #include <debug.h>
 #include <stddef.h>
@@ -41,6 +40,9 @@ static struct thread *idle_thread;
 
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
+
+/* Load Avg for the system */
+static fixed_point load_avg;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
@@ -210,6 +212,9 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  /* Set up system-wide load avg. */
+  load_avg = 0;
+
   /* Set up sleeping lists. */
   int i;
   for(i = PRI_MIN; i < PRI_MAX; i++)
@@ -259,6 +264,11 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+
+  if(thread_mlfqs)
+    {
+      t->recent_cpu += to_fp(1);
+    }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -500,13 +510,6 @@ void
 thread_set_nice (int nice) 
 {
   thread_current()->niceness = nice;
-  // Update thread priority.
-  if(thread_mlfqs)
-    {
-      int recent_cpu = thread_get_recent_cpu();
-      int new_priority = PRI_MAX - (recent_cpu / 4) - (nice * 2);
-      thread_set_priority(new_priority);
-    }
 }
 
 /* Returns the current thread's nice value. */
@@ -746,7 +749,53 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+void
+recalculate_priority(struct thread * t, void * aux UNUSED)
+{
+  // Update thread priority.
+  int nice = t->niceness;
+  int recent_cpu = t->recent_cpu;
+  fixed_point second_term = divide(recent_cpu, to_fp(4));
+  int new_priority = PRI_MAX - round_down(second_term) - (nice * 2);
+  t->priority = new_priority;
+}
+
+void
+recalculate_all_priorities(void)
+{
+  if(thread_mlfqs)
+    {
+      thread_foreach(recalculate_priority, NULL);
+    }
+}
+
+void
+update_recent_cpu(struct thread * t, void * aux UNUSED)
+{
+  fixed_point new_recent_cpu = divide((2*load_avg), (2*load_avg + to_fp(1)));
+  new_recent_cpu = multiply(new_recent_cpu, t->recent_cpu);
+  new_recent_cpu += to_fp(t->niceness);
+  t->recent_cpu = new_recent_cpu;
+}
+
+void update_all_recent_cpu()
+{
+  if(thread_mlfqs)
+    {
+      thread_foreach(update_recent_cpu, NULL);
+    }
+}
+
+void
+update_load_avg(void)
+{
+  fixed_point new_load = multiply(divide(59, 60), load_avg);
+  new_load += divide(1, 60) * list_size(&ready_list);
+  load_avg = new_load;
+  return;
+}
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
