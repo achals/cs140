@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/fixed-point.h"
 #include "threads/interrupt.h"
 
 /* States in a thread's life cycle. */
@@ -96,6 +97,7 @@ struct thread
     int priority;                       /* Effective Priority, in case of donation. */
     int original_priority;              /* The original priority of the thread. */
     int niceness;                       /* Niceness value of the thread. */
+    fixed_point recent_cpu;             /* The recent cpu the thread has recieved.*/
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -107,6 +109,7 @@ struct thread
     /* List element for priority sleeping list. */
     struct list_elem priority_sleep_elem;
 
+    /* The thread that we're waiting on. */
     struct thread * thread_with_lock;
 
     /* List of locks that are held by this thread. */

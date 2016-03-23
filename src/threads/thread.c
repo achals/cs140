@@ -324,6 +324,10 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  /* MLFQS data. */
+  t->niceness = 0;
+  t->recent_cpu = to_fp(0);
+
   /* Add to run queue. */
   thread_unblock(t);
   if(thread_current()->priority < priority)
@@ -524,8 +528,8 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  struct thread * current = thread_current();
+  return round_nearest(current->recent_cpu * 100);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.

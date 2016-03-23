@@ -16,7 +16,14 @@ static int round_down(fixed_point fp)
 
 static int round_nearest(fixed_point fp)
 {
-  return fp/fixed_f;
+  if(fp>=0)
+    {
+      return (fp + fixed_f/2)/fixed_f;
+    }
+  else
+    {
+      return (fp - fixed_f/2)/fixed_f;
+    }
 }
 
 static fixed_point to_fp(int i)
