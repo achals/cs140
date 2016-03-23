@@ -335,7 +335,7 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* MLFQS data. */
-  t->niceness = 0;
+  t->niceness = thread_current()->niceness;
   t->recent_cpu = to_fp(0);
 
   /* Add to run queue. */
@@ -523,8 +523,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return round_nearest(load_avg * 100);;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -791,7 +790,7 @@ void
 update_load_avg(void)
 {
   fixed_point new_load = multiply(divide(59, 60), load_avg);
-  new_load += divide(1, 60) * list_size(&ready_list);
+  new_load += divide(1, 60) * (list_size(&ready_list) - 1);
   load_avg = new_load;
   return;
 }
