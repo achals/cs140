@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -190,6 +191,53 @@ remove_from_sleeping_list(int64_t current_ticks)
 }
 
 
+
+void
+recalculate_priority(struct thread * t, void * aux UNUSED)
+{
+  // Update thread priority.
+  int nice = t->niceness;
+  int recent_cpu = t->recent_cpu;
+  fixed_point second_term = divide(recent_cpu, to_fp(4));
+  int new_priority = PRI_MAX - round_down(second_term) - (nice * 2);
+  t->priority = new_priority;
+}
+
+void
+recalculate_all_priorities(void)
+{
+  if(thread_mlfqs)
+    {
+      thread_foreach(recalculate_priority, NULL);
+    }
+}
+
+void
+update_recent_cpu(struct thread * t, void * aux UNUSED)
+{
+  fixed_point new_recent_cpu = divide((2*load_avg), (2*load_avg + to_fp(1)));
+  new_recent_cpu = multiply(new_recent_cpu, t->recent_cpu);
+  new_recent_cpu += to_fp(t->niceness);
+  t->recent_cpu = new_recent_cpu;
+}
+
+void update_all_recent_cpu()
+{
+  if(thread_mlfqs)
+    {
+      thread_foreach(update_recent_cpu, NULL);
+    }
+}
+
+void
+update_load_avg(void)
+{
+  fixed_point new_load = multiply(divide(59, 60), load_avg);
+  new_load += divide(1, 60) * (list_size(&ready_list) - 1);
+  load_avg = new_load;
+  return;
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -267,7 +315,21 @@ thread_tick (void)
 
   if(thread_mlfqs)
     {
-      t->recent_cpu += to_fp(1);
+      if (t != idle_thread)
+	{
+	  t->recent_cpu += to_fp(1);
+	}
+      int ticks = timer_ticks();
+      if (ticks % 4 == 0)
+	{
+	  recalculate_all_priorities();
+	}
+      if (ticks % TIMER_FREQ == 0)
+	{
+	  update_all_recent_cpu();
+	  update_load_avg();
+	}
+      
     }
 
   /* Enforce preemption. */
@@ -747,52 +809,6 @@ allocate_tid (void)
   lock_release (&tid_lock);
 
   return tid;
-}
-
-void
-recalculate_priority(struct thread * t, void * aux UNUSED)
-{
-  // Update thread priority.
-  int nice = t->niceness;
-  int recent_cpu = t->recent_cpu;
-  fixed_point second_term = divide(recent_cpu, to_fp(4));
-  int new_priority = PRI_MAX - round_down(second_term) - (nice * 2);
-  t->priority = new_priority;
-}
-
-void
-recalculate_all_priorities(void)
-{
-  if(thread_mlfqs)
-    {
-      thread_foreach(recalculate_priority, NULL);
-    }
-}
-
-void
-update_recent_cpu(struct thread * t, void * aux UNUSED)
-{
-  fixed_point new_recent_cpu = divide((2*load_avg), (2*load_avg + to_fp(1)));
-  new_recent_cpu = multiply(new_recent_cpu, t->recent_cpu);
-  new_recent_cpu += to_fp(t->niceness);
-  t->recent_cpu = new_recent_cpu;
-}
-
-void update_all_recent_cpu()
-{
-  if(thread_mlfqs)
-    {
-      thread_foreach(update_recent_cpu, NULL);
-    }
-}
-
-void
-update_load_avg(void)
-{
-  fixed_point new_load = multiply(divide(59, 60), load_avg);
-  new_load += divide(1, 60) * (list_size(&ready_list) - 1);
-  load_avg = new_load;
-  return;
 }
 
 /* Offset of `stack' member within `struct thread'.

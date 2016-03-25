@@ -176,18 +176,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
   int64_t current_ticks = timer_ticks();
   remove_from_sleeping_list(current_ticks);
-
-  enum intr_level old_level = intr_disable ();
-  if (ticks % 4 == 0)
-    {
-      recalculate_all_priorities();
-    }
-  if (ticks % TIMER_FREQ == 0)
-    {
-      update_all_recent_cpu();
-      update_load_avg();
-    }
-  intr_set_level (old_level);  
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

@@ -1,8 +1,8 @@
-#include <stddef.h>
+#include <stdint.h>
 
 #define fixed_f 16384
 
-typedef long fixed_point;
+typedef int32_t fixed_point;
 
 static int round_down(fixed_point fp)
 {
@@ -28,10 +28,10 @@ static fixed_point to_fp(int i)
 
 static fixed_point divide(int num, int denom)
 {
-  return ((long) num) * fixed_f / denom;
+  return ((int64_t) num) * fixed_f / denom;
 }
 
 static fixed_point multiply(fixed_point fp1, fixed_point fp2)
 {
-  return ((long) fp1) * fp2 / fixed_f;
+  return ((int64_t) fp1) * fp2 / fixed_f;
 }
