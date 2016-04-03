@@ -199,10 +199,6 @@ remove_from_sleeping_list(int64_t current_ticks)
 void
 recalculate_priority(struct thread * t, void * aux UNUSED)
 {
-  if(t == idle_thread)
-    {
-      return;
-    }
   // Update thread priority.
   int nice = t->niceness;
   int recent_cpu = t->recent_cpu;
@@ -213,9 +209,9 @@ recalculate_priority(struct thread * t, void * aux UNUSED)
 
   if (old_priority != new_priority)
     {
-      list_remove((&t->elem));
+      list_remove((&t->mlfqs_elem));
       list_push_back(&mlfqs_ready_lists[new_priority],
-		     &(t->elem));
+		     &(t->mlfqs_elem));
     }
 }
 
@@ -470,7 +466,7 @@ thread_unblock (struct thread *t)
   if(thread_mlfqs)
     {
       list_push_back(&mlfqs_ready_lists[t->priority],
-		     &(t->elem));
+		     &(t->mlfqs_elem));
     }
   else
     {
@@ -551,7 +547,7 @@ thread_yield (void)
       if (thread_mlfqs)
 	{
 	  list_push_back(&mlfqs_ready_lists[cur->priority],
-			 &(cur->elem));
+			 &(cur->mlfqs_elem));
 	}
       else
 	{
@@ -765,8 +761,11 @@ next_thread_to_run (void)
 	    {
 	      continue;
 	    }
-	  struct list_elem *elem = list_pop_front(&mlfqs_ready_lists[i]);
-	  return list_entry(elem, struct thread, elem);
+	  struct list * mlfqs_list = &mlfqs_ready_lists[i];
+	  struct list_elem *elem = list_pop_front(mlfqs_list);
+	  struct thread *
+	    thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
+	  return thread_to_run;
 	}
       return idle_thread;
     }

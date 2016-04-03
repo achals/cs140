@@ -103,6 +103,9 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Element used in MLFQS queues. */
+    struct list_elem mlfqs_elem;
+
     /* Lock element stored in the lock semaphore. */
     struct list_elem lock_elem;
 
