@@ -766,7 +766,6 @@ next_thread_to_run (void)
 	      continue;
 	    }
 	  struct list_elem *elem = list_pop_front(&mlfqs_ready_lists[i]);
-	  list_remove(elem);
 	  return list_entry(elem, struct thread, elem);
 	}
       return idle_thread;
