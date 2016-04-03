@@ -25,6 +25,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of processes in THREAD_READY state, that is, processes
+   that are ready to run but not actually running. */
+static struct list mlfqs_ready_lists[PRI_MAX+1];
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -200,7 +204,15 @@ recalculate_priority(struct thread * t, void * aux UNUSED)
   int recent_cpu = t->recent_cpu;
   fixed_point second_term = divide(recent_cpu, to_fp(4));
   int new_priority = PRI_MAX - round_down(second_term) - (nice * 2);
+  int old_priority = t->priority;
   t->priority = new_priority;
+
+  if (old_priority != new_priority)
+    {
+      list_remove((&t->elem));
+      list_push_back(&mlfqs_ready_lists[new_priority],
+		     &(t->elem));
+    }
 }
 
 void
@@ -269,6 +281,8 @@ thread_init (void)
   {
     list_init(&priority_sleeping_lists[i]);
     lock_init(&priority_sleeping_locks[i]);
+
+    list_init(&mlfqs_ready_lists[i]);
   }    
 
   /* Set up a thread structure for the running thread. */
@@ -445,7 +459,15 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back(&ready_list, &(t->elem));
+  if(thread_mlfqs)
+    {
+      list_push_back(&mlfqs_ready_lists[t->priority],
+		     &(t->elem));
+    }
+  else
+    {
+      list_push_back(&ready_list, &(t->elem));
+    }
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -518,7 +540,15 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
     {
-        list_push_back(&ready_list, &(cur->elem));
+      if (thread_mlfqs)
+	{
+	  list_push_back(&mlfqs_ready_lists[cur->priority],
+			 &(cur->elem));
+	}
+      else
+	{
+	  list_push_back(&ready_list, &(cur->elem));
+	}
     }
   cur->status = THREAD_READY;
   schedule ();
@@ -714,17 +744,35 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
-  if (list_empty (&ready_list))
-    return idle_thread;
+  if (thread_mlfqs)
+    {
+      int i;
+      for (i=PRI_MAX; i>=PRI_MIN; i++)
+	{
+	  if(list_empty(&mlfqs_ready_lists[i]))
+	    {
+	      continue;
+	    }
+	  struct list_elem *elem = list_pop_front(&mlfqs_ready_lists[i]);
+	  list_remove(elem);
+	  return list_entry(elem, struct thread, elem);
+	}
+      return idle_thread;
+    }
   else
     {
-      struct list_elem * max_elem = list_max(&ready_list,
-					     priority_comparison_function,
-					     NULL);
-      list_remove(max_elem);
-      struct thread *
-	thread_to_run = list_entry(max_elem, struct thread, elem);
-      return thread_to_run;
+      if (list_empty (&ready_list))
+	return idle_thread;
+      else
+	{
+	  struct list_elem * max_elem = list_max(&ready_list,
+						 priority_comparison_function,
+						 NULL);
+	  list_remove(max_elem);
+	  struct thread *
+	    thread_to_run = list_entry(max_elem, struct thread, elem);
+	  return thread_to_run;
+	}
     }
 }
 
