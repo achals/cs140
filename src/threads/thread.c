@@ -584,6 +584,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  if (thread_mlfqs)
+    {
+      return;
+    }
   struct thread *t = thread_current();
   int old_priority = t->priority;
   struct list_elem elem = t->priority_sleep_elem;
