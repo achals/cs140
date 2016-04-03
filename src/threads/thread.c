@@ -281,7 +281,7 @@ thread_init (void)
 
   /* Set up sleeping lists. */
   int i;
-  for(i = PRI_MIN; i < PRI_MAX; i++)
+  for(i = PRI_MIN; i <= PRI_MAX; i++)
   {
     list_init(&priority_sleeping_lists[i]);
     lock_init(&priority_sleeping_locks[i]);
@@ -754,18 +754,17 @@ next_thread_to_run (void)
 {
   if (thread_mlfqs)
     {
-      int i;
+      volatile int i;
       for (i=PRI_MAX; i>=PRI_MIN; i--)
 	{
-	  if(list_empty(&mlfqs_ready_lists[i]))
+	  if(!list_empty(&mlfqs_ready_lists[i]))
 	    {
-	      continue;
+	      struct list * mlfqs_list = &mlfqs_ready_lists[i];
+	      struct list_elem *elem = list_pop_front(mlfqs_list);
+	      struct thread *
+		thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
+	      return thread_to_run;
 	    }
-	  struct list * mlfqs_list = &mlfqs_ready_lists[i];
-	  struct list_elem *elem = list_pop_front(mlfqs_list);
-	  struct thread *
-	    thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
-	  return thread_to_run;
 	}
       return idle_thread;
     }
