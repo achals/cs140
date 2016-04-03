@@ -199,6 +199,10 @@ remove_from_sleeping_list(int64_t current_ticks)
 void
 recalculate_priority(struct thread * t, void * aux UNUSED)
 {
+  if(t == idle_thread)
+    {
+      return;
+    }
   // Update thread priority.
   int nice = t->niceness;
   int recent_cpu = t->recent_cpu;
@@ -227,6 +231,10 @@ recalculate_all_priorities(void)
 void
 update_recent_cpu(struct thread * t, void * aux UNUSED)
 {
+  if ( t == idle_thread)
+    {
+      return;
+    }
   fixed_point new_recent_cpu = divide((2*load_avg), (2*load_avg + to_fp(1)));
   new_recent_cpu = multiply(new_recent_cpu, t->recent_cpu);
   new_recent_cpu += to_fp(t->niceness);
@@ -747,7 +755,7 @@ next_thread_to_run (void)
   if (thread_mlfqs)
     {
       int i;
-      for (i=PRI_MAX; i>=PRI_MIN; i++)
+      for (i=PRI_MAX; i>=PRI_MIN; i--)
 	{
 	  if(list_empty(&mlfqs_ready_lists[i]))
 	    {
