@@ -65,6 +65,8 @@ static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
 
+static long long mlfqs_num_ready;
+
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
@@ -289,6 +291,8 @@ thread_init (void)
     list_init(&mlfqs_ready_lists[i]);
   }    
 
+  mlfqs_num_ready = 0;
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
 
@@ -467,6 +471,7 @@ thread_unblock (struct thread *t)
     {
       list_push_back(&mlfqs_ready_lists[t->priority],
 		     &(t->mlfqs_elem));
+      mlfqs_num_ready++;
     }
   else
     {
@@ -548,6 +553,7 @@ thread_yield (void)
 	{
 	  list_push_back(&mlfqs_ready_lists[cur->priority],
 			 &(cur->mlfqs_elem));
+	  mlfqs_num_ready++;
 	}
       else
 	{
@@ -763,6 +769,7 @@ next_thread_to_run (void)
 	      struct list_elem *elem = list_pop_front(mlfqs_list);
 	      struct thread *
 		thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
+	      mlfqs_num_read--;
 	      return thread_to_run;
 	    }
 	}
