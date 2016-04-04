@@ -1,37 +1,33 @@
 #include <stdint.h>
 
-#define fixed_f 16384
+/* This represents 14 bits of sub-integer precision */
+#define FP_PRECISION 16384
+
 
 typedef int32_t fixed_point;
 
-static int round_down(fixed_point fp)
-{
-  return fp/fixed_f;
+static inline fixed_point int2fp(int32_t num) {
+  return num*FP_PRECISION;
 }
 
-static int round_nearest(fixed_point fp)
-{
-  if(fp>=0)
-    {
-      return (fp + fixed_f/2)/fixed_f;
-    }
-  else
-    {
-      return (fp - fixed_f/2)/fixed_f;
-    }
+static inline int32_t fp2int(fixed_point fp) {
+  return fp/FP_PRECISION;
 }
 
-static fixed_point to_fp(int i)
-{
-  return (i * fixed_f);
+static inline fixed_point fpadd(fixed_point first, fixed_point second) {
+  return first + second;
 }
 
-static fixed_point divide(int num, int denom)
-{
-  return ((int64_t) num) * fixed_f / denom;
+static inline fixed_point fpsub(fixed_point first, fixed_point second) {
+  return first - second;
 }
 
-static fixed_point multiply(fixed_point fp1, fixed_point fp2)
-{
-  return ((int64_t) fp1) * fp2 / fixed_f;
+static inline fixed_point fpmul(fixed_point first, fixed_point second) {
+  int64_t product = ((int64_t)first)*second/FP_PRECISION;
+  return product;
+}
+
+static inline fixed_point fpdiv(fixed_point first, fixed_point second) {
+  int64_t quotient = ((int64_t)first)*FP_PRECISION/second;
+  return quotient;
 }

@@ -204,8 +204,8 @@ recalculate_priority(struct thread * t, void * aux UNUSED)
   // Update thread priority.
   int nice = t->niceness;
   int recent_cpu = t->recent_cpu;
-  fixed_point second_term = divide(recent_cpu, to_fp(4));
-  int new_priority = PRI_MAX - round_down(second_term) - (nice * 2);
+  fixed_point second_term = fpdiv(recent_cpu, int2fp(4));
+  int new_priority = PRI_MAX - fp2int(second_term) - (nice * 2);
   int old_priority = t->priority;
   t->priority = new_priority;
 
@@ -231,11 +231,14 @@ update_recent_cpu(struct thread * t, void * aux UNUSED)
 {
   if ( t == idle_thread)
     {
-      return;
+      //return;
     }
-  fixed_point new_recent_cpu = divide((2*load_avg), (2*load_avg + to_fp(1)));
-  new_recent_cpu = multiply(new_recent_cpu, t->recent_cpu);
-  new_recent_cpu += to_fp(t->niceness);
+  fixed_point new_recent_cpu = fpdiv(fpmul(int2fp(2), load_avg),
+				     fpadd(fpmul(int2fp(2), load_avg),
+					   int2fp(1)));
+  new_recent_cpu = fpmul(new_recent_cpu, t->recent_cpu);
+  new_recent_cpu = fpadd(new_recent_cpu,
+			 int2fp(t->niceness));
   t->recent_cpu = new_recent_cpu;
 }
 
@@ -250,10 +253,9 @@ void update_all_recent_cpu()
 void
 update_load_avg(void)
 {
-  fixed_point new_load = multiply(divide(59, 60), load_avg);
-  new_load += divide(1, 60) * (list_size(&ready_list) - 1);
-  load_avg = new_load;
-  return;
+  int current_load = mlfqs_num_ready;
+  load_avg = fpadd(fpmul (fpdiv (int2fp(59), int2fp (60)), load_avg),
+		   fpdiv (int2fp (current_load), int2fp (60)));
 }
 
 /* Initializes the threading system by transforming the code
@@ -279,7 +281,7 @@ thread_init (void)
   list_init (&all_list);
 
   /* Set up system-wide load avg. */
-  load_avg = 0;
+  load_avg = int2fp(0);
 
   /* Set up sleeping lists. */
   int i;
@@ -339,7 +341,8 @@ thread_tick (void)
     {
       if (t != idle_thread)
 	{
-	  t->recent_cpu += to_fp(1);
+	  t->recent_cpu = fpadd (t->recent_cpu,
+				 int2fp (1));;
 	}
       int ticks = timer_ticks();
       if (ticks % 4 == 0)
@@ -351,7 +354,6 @@ thread_tick (void)
 	  update_all_recent_cpu();
 	  update_load_avg();
 	}
-      
     }
 
   /* Enforce preemption. */
@@ -420,7 +422,7 @@ thread_create (const char *name, int priority,
 
   /* MLFQS data. */
   t->niceness = thread_current()->niceness;
-  t->recent_cpu = to_fp(0);
+  t->recent_cpu = int2fp(0);
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -629,7 +631,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return round_nearest(load_avg * 100);;
+  return fp2int(load_avg) * 100;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -637,7 +639,7 @@ int
 thread_get_recent_cpu (void) 
 {
   struct thread * current = thread_current();
-  return round_nearest(current->recent_cpu * 100);
+  return fp2int(current->recent_cpu) * 100;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -769,7 +771,7 @@ next_thread_to_run (void)
 	      struct list_elem *elem = list_pop_front(mlfqs_list);
 	      struct thread *
 		thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
-	      mlfqs_num_read--;
+	      mlfqs_num_ready--;
 	      return thread_to_run;
 	    }
 	}
