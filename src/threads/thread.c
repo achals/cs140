@@ -254,6 +254,10 @@ void
 update_load_avg(void)
 {
   int current_load = mlfqs_num_ready;
+  if (thread_current() == idle_thread)
+    {
+      current_load++;
+    }
   load_avg = fpadd(fpmul (fpdiv (int2fp(59), int2fp (60)), load_avg),
 		   fpdiv (int2fp (current_load), int2fp (60)));
 }
