@@ -88,6 +88,16 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+static int clamp (int val, int min, int max);
+
+static int
+clamp (int val, int min, int max)
+{
+  if (val < min) return min;
+  if (val > max) return max;
+  return val;
+}
+
 bool
 elem_comparison_function(const struct list_elem *a,
 			 const struct list_elem *b,
@@ -196,8 +206,6 @@ remove_from_sleeping_list(int64_t current_ticks)
   }
 }
 
-
-
 void
 recalculate_priority(struct thread * t, void * aux UNUSED)
 {
@@ -211,12 +219,12 @@ recalculate_priority(struct thread * t, void * aux UNUSED)
   fixed_point second_term = fpdiv(recent_cpu, int2fp(4));
   int new_priority = PRI_MAX - fp2int(second_term) - (nice * 2);
   int old_priority = t->priority;
-  t->priority = new_priority;
+  t->priority = clamp(new_priority, PRI_MIN, PRI_MAX);
 
-  if (old_priority != new_priority)
+  if (old_priority != new_priority && t->status == THREAD_READY)
     {
       list_remove((&t->mlfqs_elem));
-      list_push_back(&mlfqs_ready_lists[new_priority],
+      list_push_back(&mlfqs_ready_lists[t->priority],
 		     &(t->mlfqs_elem));
     }
 }
@@ -425,7 +433,8 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* MLFQS data. */
-  t->niceness = thread_current()->niceness;
+  t->niceness = clamp(thread_current()->niceness,
+		      NICE_MIN, NICE_MAX);
   t->recent_cpu = int2fp(0);
 
   /* Add to run queue. */
@@ -621,7 +630,8 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice) 
 {
-  thread_current()->niceness = nice;
+  thread_current()->niceness = clamp(nice, NICE_MIN, NICE_MAX);
+  recalculate_priority(thread_current(), NULL);
 }
 
 /* Returns the current thread's nice value. */
@@ -766,7 +776,6 @@ next_thread_to_run (void)
 {
   if (thread_mlfqs)
     {
-
       if (mlfqs_num_ready == 0)
 	{
 	  return idle_thread;
@@ -774,9 +783,9 @@ next_thread_to_run (void)
       int i;
       for (i=PRI_MAX; i>=PRI_MIN; i--)
 	{
-	  if(!list_empty(&mlfqs_ready_lists[i]))
+	  struct list * mlfqs_list = &mlfqs_ready_lists[i];
+	  if(!list_empty(mlfqs_list))
 	    {
-	      struct list * mlfqs_list = &mlfqs_ready_lists[i];
 	      struct list_elem * e;
 	      for (e = list_begin (mlfqs_list);
 		   e != list_end (mlfqs_list);
