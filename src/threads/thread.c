@@ -362,9 +362,9 @@ thread_tick (void)
 	  update_all_recent_cpu();
 	  recalculate_all_priorities();
 	}
-      else if (ticks % 4 == 0)
+      else if (ticks % TIME_SLICE == 0)
 	{
-	  recalculate_priority(thread_current(), NULL);
+	  recalculate_all_priorities();
 	}
     }
 
