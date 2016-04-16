@@ -766,13 +766,18 @@ next_thread_to_run (void)
 {
   if (thread_mlfqs)
     {
-      volatile int i;
+
+      if (mlfqs_num_ready == 0)
+	{
+	  return idle_thread;
+	}
+      int i;
       for (i=PRI_MAX; i>=PRI_MIN; i--)
 	{
 	  if(!list_empty(&mlfqs_ready_lists[i]))
 	    {
 	      struct list * mlfqs_list = &mlfqs_ready_lists[i];
-	      struct list_elem *e;
+	      struct list_elem * e;
 	      for (e = list_begin (mlfqs_list);
 		   e != list_end (mlfqs_list);
 		   e = list_next (e))
@@ -781,7 +786,7 @@ next_thread_to_run (void)
 		    thread =  list_entry(e, struct thread, mlfqs_elem);
 		  if (thread->status == THREAD_READY)
 		    {
-		      list_remove(e);
+		      list_remove(&thread->mlfqs_elem);
 		      mlfqs_num_ready--;
 		      return thread;
 		    }
