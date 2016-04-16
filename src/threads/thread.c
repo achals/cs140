@@ -202,6 +202,10 @@ void
 recalculate_priority(struct thread * t, void * aux UNUSED)
 {
   // Update thread priority.
+  if (t==idle_thread)
+    {
+      return;
+    }
   int nice = t->niceness;
   int recent_cpu = t->recent_cpu;
   fixed_point second_term = fpdiv(recent_cpu, int2fp(4));
@@ -254,12 +258,13 @@ void
 update_load_avg(void)
 {
   int current_load = mlfqs_num_ready;
-  if (thread_current() == idle_thread)
+  if (thread_current() != idle_thread)
     {
       current_load++;
     }
-  load_avg = fpadd(fpmul (fpdiv (int2fp(59), int2fp (60)), load_avg),
-		   fpdiv (int2fp (current_load), int2fp (60)));
+  fixed_point first_term = fpmul(fpdiv (int2fp(59), int2fp (60)), load_avg);
+  fixed_point second_term = fpdiv (int2fp (current_load), int2fp (60));
+  load_avg = fpadd(first_term, second_term);
 }
 
 /* Initializes the threading system by transforming the code
