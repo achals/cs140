@@ -233,17 +233,11 @@ recalculate_all_priorities(void)
 void
 update_recent_cpu(struct thread * t, void * aux UNUSED)
 {
-  if ( t == idle_thread)
-    {
-      //return;
-    }
-  fixed_point new_recent_cpu = fpdiv(fpmul(int2fp(2), load_avg),
-				     fpadd(fpmul(int2fp(2), load_avg),
-					   int2fp(1)));
-  new_recent_cpu = fpmul(new_recent_cpu, t->recent_cpu);
-  new_recent_cpu = fpadd(new_recent_cpu,
-			 int2fp(t->niceness));
-  t->recent_cpu = new_recent_cpu;
+  fixed_point numerator = fpmul (int2fp (2), load_avg);
+  fixed_point denominator = fpadd (numerator, int2fp (1));
+  fixed_point coeff = fpdiv (numerator, denominator);
+  t->recent_cpu = fpadd (fpmul (coeff, t->recent_cpu),
+			 int2fp (t->niceness));
 }
 
 void update_all_recent_cpu()
@@ -354,14 +348,15 @@ thread_tick (void)
 				 int2fp (1));;
 	}
       int ticks = timer_ticks();
-      if (ticks % 4 == 0)
-	{
-	  recalculate_all_priorities();
-	}
       if (ticks % TIMER_FREQ == 0)
 	{
-	  update_all_recent_cpu();
 	  update_load_avg();
+	  update_all_recent_cpu();
+	  recalculate_all_priorities();
+	}
+      else if (ticks % 4 == 0)
+	{
+	  recalculate_priority(thread_current(), NULL);
 	}
     }
 
@@ -777,11 +772,20 @@ next_thread_to_run (void)
 	  if(!list_empty(&mlfqs_ready_lists[i]))
 	    {
 	      struct list * mlfqs_list = &mlfqs_ready_lists[i];
-	      struct list_elem *elem = list_pop_front(mlfqs_list);
-	      struct thread *
-		thread_to_run =  list_entry(elem, struct thread, mlfqs_elem);
-	      mlfqs_num_ready--;
-	      return thread_to_run;
+	      struct list_elem *e;
+	      for (e = list_begin (mlfqs_list);
+		   e != list_end (mlfqs_list);
+		   e = list_next (e))
+		{
+		  struct thread *
+		    thread =  list_entry(e, struct thread, mlfqs_elem);
+		  if (thread->status == THREAD_READY)
+		    {
+		      list_remove(e);
+		      mlfqs_num_ready--;
+		      return thread;
+		    }
+		}
 	    }
 	}
       return idle_thread;
