@@ -640,7 +640,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return fp2int(load_avg) * 100;
+  return fp2int(fpmul(load_avg, int2fp(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -648,7 +648,7 @@ int
 thread_get_recent_cpu (void) 
 {
   struct thread * current = thread_current();
-  return fp2int(current->recent_cpu) * 100;
+  return fp2int (fpmul (int2fp(100), current->recent_cpu));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
