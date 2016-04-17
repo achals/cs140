@@ -1,6 +1,7 @@
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
+#include <list.h>
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -195,7 +197,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, struct list * cmd_tokens);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -206,14 +208,16 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *file_name, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
+  struct list cmd_line_tokens;
   off_t file_ofs;
   bool success = false;
   int i;
+  char *arg_list_copy;
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -300,9 +304,28 @@ load (const char *file_name, void (**eip) (void), void **esp)
           break;
         }
     }
+  /* Make a copy of the file name to tokenize destructively */
+  int command_size = strlen(file_name);
+  arg_list_copy = malloc(strlen(file_name) + 1);
+  if (!arg_list_copy)
+    {
+      return TID_ERROR;
+    }
+  strlcpy (arg_list_copy, file_name, command_size+1);
+  list_init(&cmd_line_tokens);
+
+  char *token, *save_ptr;
+  for (token = strtok_r (arg_list_copy, " ", &save_ptr); token != NULL;
+       token = strtok_r (NULL, " ", &save_ptr))
+    {
+      struct cmd_token * token_elem = malloc(sizeof(struct cmd_token));
+      strlcpy(token_elem->token, token, 16);
+      list_push_back(&cmd_line_tokens, &token_elem->elem);
+    }
+  // At this point, the list should have all the tokens needed to setup the stack.
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, &cmd_line_tokens))
     goto done;
 
   /* Start address. */
@@ -427,7 +450,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, struct list * cmd_line_tokens)
 {
   uint8_t *kpage;
   bool success = false;
@@ -437,7 +460,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }
