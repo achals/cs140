@@ -142,7 +142,7 @@ propogate_priority_change(struct thread * t,
 			  int new_pri,
 			  int remaining_hops)
 {
-  if (t == NULL)
+  if (t == NULL || thread_mlfqs)
     {
       return;
     }
@@ -436,6 +436,10 @@ thread_create (const char *name, int priority,
   t->niceness = clamp(current->niceness,
 		      NICE_MIN, NICE_MAX);
   t->recent_cpu = current->recent_cpu;
+  if (thread_mlfqs)
+    {
+      t->priority = current->priority;
+    }
 
   /* Add to run queue. */
   thread_unblock(t);
