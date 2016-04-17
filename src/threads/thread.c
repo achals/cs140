@@ -40,6 +40,8 @@ static struct list priority_sleeping_lists[PRI_MAX + 1];
 /* Lock to handle the sleeping list. */
 static struct lock priority_sleeping_locks[PRI_MAX + 1];
 
+static long long sleeping_threads_num;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -174,6 +176,8 @@ add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 		      NULL);
   lock_release(&priority_sleeping_locks[thread_priority]);
 
+  sleeping_threads_num++;
+
   thread_block();
   intr_set_level (old_level);
 }
@@ -181,6 +185,10 @@ add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
 void
 remove_from_sleeping_list(int64_t current_ticks)
 {
+  if (sleeping_threads_num == 0)
+    {
+      return;
+    }
   int i;
   for(i = PRI_MAX; i >= PRI_MIN; i--)
   {
@@ -195,6 +203,7 @@ remove_from_sleeping_list(int64_t current_ticks)
 	{
 	  thread_unblock(head);
 	  list_pop_front(&priority_sleeping_lists[i]);
+	  sleeping_threads_num--;
 	}
 	else
 	{
@@ -303,6 +312,7 @@ thread_init (void)
     list_init(&mlfqs_ready_lists[i]);
   }    
 
+  sleeping_threads_num = 0;
   mlfqs_num_ready = 0;
 
   /* Set up a thread structure for the running thread. */
