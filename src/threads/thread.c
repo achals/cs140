@@ -214,11 +214,10 @@ recalculate_priority(struct thread * t, void * aux UNUSED)
     {
       return;
     }
-  int nice = t->niceness;
-  int recent_cpu = t->recent_cpu;
-  fixed_point second_term = fpdiv(recent_cpu, int2fp(4));
-  int new_priority = PRI_MAX - fp2int(second_term) - (nice * 2);
-  int old_priority = t->priority;
+  int old_priority = t -> priority;
+  fixed_point recent_contrib = fpdiv (t->recent_cpu, int2fp (4));
+  fixed_point nice_contrib = fpmul (int2fp (t->niceness), int2fp (2));
+  int new_priority = PRI_MAX - fp2int (recent_contrib) - fp2int (nice_contrib);
   t->priority = clamp(new_priority, PRI_MIN, PRI_MAX);
 
   if (old_priority != new_priority && t->status == THREAD_READY)
@@ -432,10 +431,11 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  struct thread * current = thread_current();
   /* MLFQS data. */
-  t->niceness = clamp(thread_current()->niceness,
+  t->niceness = clamp(current->niceness,
 		      NICE_MIN, NICE_MAX);
-  t->recent_cpu = int2fp(0);
+  t->recent_cpu = current->recent_cpu;
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -632,6 +632,7 @@ thread_set_nice (int nice)
 {
   thread_current()->niceness = clamp(nice, NICE_MIN, NICE_MAX);
   recalculate_priority(thread_current(), NULL);
+  thread_yield();
 }
 
 /* Returns the current thread's nice value. */
@@ -741,6 +742,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  t->niceness = NICE_DEFAULT;
   t->priority = priority;
   t->original_priority = priority;
   t->magic = THREAD_MAGIC;
