@@ -33,12 +33,8 @@ static struct list mlfqs_ready_lists[PRI_MAX+1];
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* Sleeping lists per priority. This can be a sorted list as well,
-   but since there are so fre priorities an array should be just as good. */
-static struct list priority_sleeping_lists[PRI_MAX + 1];
-
-/* Lock to handle the sleeping list. */
-static struct lock priority_sleeping_locks[PRI_MAX + 1];
+/* The list that holds all the sleeping threads, sorted by wakeup time. */
+static struct list sleeping_list;
 
 static long long sleeping_threads_num;
 
@@ -169,12 +165,10 @@ add_to_sleeping_list(struct thread * t, int64_t wakeup_ticks)
   t->wakeup_ticks = wakeup_ticks;
 
   int thread_priority = t->priority;
-  lock_acquire(&priority_sleeping_locks[thread_priority]);
-  list_insert_ordered(&priority_sleeping_lists[thread_priority],
+  list_insert_ordered(&sleeping_list,
 		      &(t->priority_sleep_elem),
 		      elem_comparison_function,
 		      NULL);
-  lock_release(&priority_sleeping_locks[thread_priority]);
 
   sleeping_threads_num++;
 
@@ -189,30 +183,22 @@ remove_from_sleeping_list(int64_t current_ticks)
     {
       return;
     }
-  int i;
-  for(i = PRI_MAX; i >= PRI_MIN; i--)
-  {
-    if(lock_try_acquire(&priority_sleeping_locks[i]))
+  while( !list_empty(&sleeping_list) )
     {
-      while(!list_empty(&priority_sleeping_lists[i]))
-      {
-	struct thread * head = list_entry(list_front(&priority_sleeping_lists[i]),
-					  struct thread,
-					  priority_sleep_elem);
-	if( head->wakeup_ticks <= current_ticks )
+      struct thread * head = list_entry(list_front(&sleeping_list),
+					struct thread,
+					priority_sleep_elem);
+      if( head->wakeup_ticks <= current_ticks )
 	{
 	  thread_unblock(head);
-	  list_pop_front(&priority_sleeping_lists[i]);
+	  list_pop_front(&sleeping_list);
 	  sleeping_threads_num--;
 	}
 	else
 	{
 	  break;
 	}
-      }
-      lock_release(&priority_sleeping_locks[i]);
     }
-  }
 }
 
 void
@@ -306,11 +292,10 @@ thread_init (void)
   int i;
   for(i = PRI_MIN; i <= PRI_MAX; i++)
   {
-    list_init(&priority_sleeping_lists[i]);
-    lock_init(&priority_sleeping_locks[i]);
-
     list_init(&mlfqs_ready_lists[i]);
   }    
+
+  list_init(&sleeping_list);
 
   sleeping_threads_num = 0;
   mlfqs_num_ready = 0;
@@ -621,16 +606,9 @@ thread_set_priority (int new_priority)
     }
   struct thread *t = thread_current();
   int old_priority = t->priority;
-  struct list_elem elem = t->priority_sleep_elem;
   t->priority = new_priority;
   t->original_priority = new_priority;
-  if(t->status == THREAD_BLOCKED)
-  {
-    lock_acquire(&priority_sleeping_locks[old_priority]);
-    list_remove(&elem);
-    lock_release(&priority_sleeping_locks[old_priority]);
-  }
-  add_to_sleeping_list(t, t->wakeup_ticks);
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
