@@ -605,9 +605,31 @@ thread_set_priority (int new_priority)
       return;
     }
   struct thread *t = thread_current();
-  int old_priority = t->priority;
-  t->priority = new_priority;
-  t->original_priority = new_priority;
+
+  if (t->priority == t->original_priority)
+    {
+      // No donation, just update.
+      t->priority = new_priority;
+      t->original_priority = new_priority;
+      propogate_priority_change(t,
+				new_priority,
+				8);
+
+    }
+  else
+    {
+      // Priority has been donated, so we can't update ours if it's lower.
+      t->original_priority = new_priority;
+      if (new_priority > t->priority)
+	{
+	  t->priority = new_priority;
+	  propogate_priority_change(t,
+				    new_priority,
+				    8);
+
+	}
+      
+    }
   thread_yield();
 }
 
